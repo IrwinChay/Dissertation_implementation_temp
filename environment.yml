@@ -1,0 +1,18 @@
+name: due
+channels:
+    - gpytorch
+    - pytorch
+    - defaults
+dependencies:
+    - python>=3.6
+    - gpytorch=1.6.0
+    - pytorch=1.10.2
+    - cudatoolkit=10.2
+    - torchvision=0.11.3
+    - ignite=0.4.8
+    - tensorboard
+    - tqdm
+    - numpy
+    - scikit-learn
+    - matplotlib
+    - seaborn
