@@ -8,7 +8,7 @@ from torch import Tensor, nn
 from cirkit.layers.input import InputLayer
 from cirkit.layers.input.exp_family import ExpFamilyLayer
 from cirkit.layers.input.integral import IntegralInputLayer
-from cirkit.layers.input.sm_layer_imag import SMKernelPosImagLayer, SMKernelNegImagLayer, SMKernelImagLayerParams
+from cirkit.layers.input.sm_layer_imag import SMKernelPosImagLayer, SMKernelNegImagLayer, SMKernelImagLayerParams, SMKernelImagFlattenLayerParams
 from cirkit.layers.input import InputLayer
 from cirkit.layers.layer import Layer
 from cirkit.layers.scope import ScopeLayer
@@ -31,7 +31,7 @@ class TensorizedSMPC(nn.Module):
         cls,
         rg: RegionGraph,
         layer_cls: Type[SumProductLayer],
-        efamily_cls: SMKernelImagLayerParams,
+        efamily_cls: Union[SMKernelImagLayerParams, SMKernelImagFlattenLayerParams],
         *,
         layer_kwargs: Optional[Dict[str, Any]] = None,
         efamily_kwargs: Optional[Dict[str, Any]] = None,
@@ -111,7 +111,7 @@ class TensorizedSMPC(nn.Module):
 
     def __init__(  # pylint: disable=too-many-arguments
         self,
-        input_layer_params: SMKernelImagLayerParams,
+        input_layer_params: Union[SMKernelImagLayerParams, SMKernelImagFlattenLayerParams],
         input_layer_pos: SMKernelPosImagLayer,
         input_layer_neg: SMKernelNegImagLayer,
         scope_layer: ScopeLayer,

@@ -23,11 +23,11 @@ from cirkit.region_graph.fully_factorized import FullyFactorized
 from cirkit.models.gp import CircuitGP, initial_values
 from cirkit.layers.sum_product import CPLayer
 # from cirkit.layers.input.rbf_kernel_flatten import RBFKernelFlattenLayer
-from cirkit.layers.input.sm_layer_imag_flatten import SMKernelImagFlattenLayerParams
+from cirkit.layers.input.sm_layer_imag import SMKernelImagFlattenLayerParams
 from cirkit.models.smgp import CircuitSMGP
 from cirkit.models.tensorized_SM_circuit import TensorizedSMPC
 from cirkit.reparams.leaf import ReparamExp, ReparamLogSoftmax, ReparamSoftmax
-from cirkit.models.tensorized_circuit import TensorizedPC
+# from cirkit.models.tensorized_circuit import TensorizedPC
 
 class IdentityMapping(nn.Module):
     def __init__(self):
@@ -38,18 +38,13 @@ class IdentityMapping(nn.Module):
     
 step_counter = 0
 
-forward_times_curr_run = 0.0
-backward_times_curr_run = 0.0
-forward_memory_curr_run = 0.0
-backward_memory_curr_run = 0.0
-
 ################## Hyper Param ##################
 
 dataset = "kin40k"
 lr = 1e-3
 batch_size = 32
-epochs = 50
-n_inducing_points = 50
+epochs = 100
+n_inducing_points = 100
 kernel = "SM" # not used
 
 num_mixtures = 1
@@ -58,7 +53,7 @@ region_graph = FullyFactorized(num_vars=num_vars)
 # region_graph = RandomBinaryTree(num_vars=8, depth=3, num_repetitions=6)
 # efamily_cls = RBFKernelFlattenLayer   # Flatten
 layer_cls = CPLayer
-reparam = ReparamSoftmax
+reparam = ReparamExp
 
 
 def main():
@@ -67,12 +62,7 @@ def main():
     all_training_time = []
     all_peak_memory = []
     
-    all_forward_times = []
-    all_backward_times = []
-    all_forward_mems = []
-    all_backward_mems = []
-    
-    
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
     print("Device: ", device)
     # The device to use, e.g., "cpu", "cuda", "cuda:1"
@@ -94,12 +84,14 @@ def main():
 
         # Update seed settings for each run
         seed = run * 10  # Example: 10, 20, 30 for the three runs
+        # seed = 4
         print("random seed: ", seed)
         random.seed(seed)
         np.random.seed(seed)
         torch.manual_seed(seed)
         
         if torch.cuda.is_available():
+            torch.cuda.empty_cache()
             torch.cuda.manual_seed_all(seed) 
             
         
@@ -170,14 +162,14 @@ def main():
         dl_train = torch.utils.data.DataLoader(ds_train, batch_size=batch_size, shuffle=True, drop_last=True) # suffle 
 
         ds_val = torch.utils.data.TensorDataset(torch.from_numpy(x_val_normalized).float(), torch.from_numpy(y_val).float())
-        dl_val = torch.utils.data.DataLoader(ds_val, batch_size=512, shuffle=False)
+        dl_val = torch.utils.data.DataLoader(ds_val, batch_size=32, shuffle=False)
 
         ds_test = torch.utils.data.TensorDataset(torch.from_numpy(x_test_normalized).float(), torch.from_numpy(y_test).float())
-        dl_test = torch.utils.data.DataLoader(ds_test, batch_size=512, shuffle=False)
+        dl_test = torch.utils.data.DataLoader(ds_test, batch_size=32, shuffle=False)
         
         ################## Training Definitions ##################
 
-        initial_inducing_points, initial_lengthscale = initial_values(
+        initial_inducing_points, _ = initial_values(
                 ds_train, feature_extractor, n_inducing_points
         )
 
@@ -204,27 +196,10 @@ def main():
             
         optimizer = torch.optim.Adam(parameters)
         pbar = ProgressBar()
-        
-        global forward_times_curr_run 
-        global backward_times_curr_run 
-        global forward_memory_curr_run 
-        global backward_memory_curr_run 
-        
-        forward_times_curr_run = 0.0
-        backward_times_curr_run = 0.0
-        forward_memory_curr_run = 0.0
-        backward_memory_curr_run = 0.0
-
-        
 
         def step(engine, batch):
             
             global step_counter
-            
-            global forward_times_curr_run 
-            global backward_times_curr_run 
-            global forward_memory_curr_run 
-            global backward_memory_curr_run 
             
             step_counter += 1
             
@@ -237,24 +212,10 @@ def main():
             if torch.cuda.is_available():
                 x = x.cuda()
                 y = y.cuda()
-                
-            start_time_forward = time.time()
-            if torch.cuda.is_available():
-                start_memory_forward = torch.cuda.memory_allocated(device=device)
 
             y_pred = gp_model(x) # get y    
             loss = loss_fn(y_pred, y) # loss
-            
-            if torch.cuda.is_available():
-                end_memory_forward = torch.cuda.memory_allocated(device=device)
-            end_time_forward = time.time()
-            
-            # Memory and time for forward pass
-            if torch.cuda.is_available():
-                forward_memory_curr_run += (end_memory_forward - start_memory_forward)
-            forward_times_curr_run += (end_time_forward - start_time_forward)
 
-            
             if torch.isnan(loss).any():
                 print(f"Step {step_counter}: NaN detected in loss.")
                 print("loss", loss)
@@ -267,21 +228,8 @@ def main():
                 engine.terminate()
                 return
             
-            start_time_backward = time.time()
-            if torch.cuda.is_available():
-                start_memory_backward = torch.cuda.memory_allocated(device=device)
-            
             loss.backward()
             optimizer.step()
-            
-            if torch.cuda.is_available():
-                end_memory_backward = torch.cuda.memory_allocated(device=device)
-            end_time_backward = time.time()
-            
-            # Memory and time for backward pass
-            if torch.cuda.is_available():
-                backward_memory_curr_run += (end_memory_backward - start_memory_backward)
-            backward_times_curr_run += (end_time_backward - start_time_backward)
             
             return loss.item()
 
@@ -292,8 +240,8 @@ def main():
             
             x, y = batch
             if torch.cuda.is_available():
-                x = x.cuda()
-                y = y.cuda()
+                x = x.cuda(non_blocking=True)
+                y = y.cuda(non_blocking=True)
 
             y_pred = gp_model(x)   
             return y_pred, y
@@ -310,12 +258,19 @@ def main():
 
         metric.attach(evaluator, "loss")
 
-        @trainer.on(Events.EPOCH_COMPLETED(every=int(epochs/20) + 1))
+        @trainer.on(Events.EPOCH_COMPLETED(every=5))
         def log_results(trainer):
+            
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            
             evaluator.run(dl_val) # val dataset
             print(f"Results - Epoch: {trainer.state.epoch} - "
                 f"Val Loss: {evaluator.state.metrics['loss']:.2f} - "
                 f"Train Loss: {trainer.state.metrics['loss']:.2f}")
+            
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
             
         print("Total model params: ")
         for index, param in enumerate(gp_model.parameters()): 
@@ -352,23 +307,6 @@ def main():
         print()
         print()
         
-
-        # Print results for this run
-        all_forward_times.append(forward_times_curr_run)
-        all_backward_times.append(backward_times_curr_run)
-        print(f"Run {run} - Forward pass: Total time = {forward_times_curr_run:.2f} s")
-        print(f"Run {run} - Backward pass: Total time = {backward_times_curr_run:.2f} s")
-
-        if torch.cuda.is_available():
-            all_forward_mems.append(forward_memory_curr_run)
-            all_backward_mems.append(backward_memory_curr_run)
-            print(f"Run {run} - Forward pass: Total memory = {forward_memory_curr_run / 1e6:.2f} MB")
-            print(f"Run {run} - Backward pass: Total memory = {backward_memory_curr_run / 1e6:.2f} MB")
-
-        print()
-        print()
-        
-        
         ################## Testing ##################
         
         # Assuming you have a function to compute RMSE, or you're using Ignite's RMSE metric
@@ -379,15 +317,15 @@ def main():
             
             x, y = batch
             if torch.cuda.is_available():
-                x = x.cuda()
-                y = y.cuda()
+                x = x.cuda(non_blocking=True)
+                y = y.cuda(non_blocking=True)
 
             # Assuming your model outputs a distribution, e.g., MultivariateNormal
             with torch.no_grad():  # Disable gradient computation for evaluation
                 distribution = gp_model(x)
                 y_pred = distribution.mean  # Use the mean of the distribution as the prediction
 
-            return y_pred, y
+            return y_pred.detach().cpu(), y.detach().cpu()
 
         # Update the evaluator engine
         evaluator = Engine(eval_step)
@@ -421,20 +359,6 @@ def main():
     print("Mean training time:", mean_training_time)
     print("STD training time:", std_training_time)
     
-    # Forward Training Time
-    mean_forward_training_time = statistics.mean(all_forward_times)
-    std_forward_training_time = statistics.stdev(all_forward_times)
-    print("Mean forward training time:", mean_forward_training_time)
-    print("STD forward training time:", std_forward_training_time)
-    
-    # Backward Training Time
-    mean_backward_training_time = statistics.mean(all_backward_times)
-    std_backward_training_time = statistics.stdev(all_backward_times)
-    print("Mean backward training time:", mean_backward_training_time)
-    print("STD backward training time:", std_backward_training_time)
-    print()
-    print()
-    
     # Training Mem
     if all_peak_memory:
         mean_peak_mem = statistics.mean(all_peak_memory)
@@ -442,18 +366,6 @@ def main():
         print("Mean peak memory:", mean_peak_mem)
         print("STD peak memory:", std_peak_mem)
         
-        # Forward Training Time
-        mean_forward_training_mem = statistics.mean(all_forward_mems)
-        std_forward_training_mem = statistics.stdev(all_forward_mems)
-        print("Mean forward training mem:", mean_forward_training_mem)
-        print("STD forward training mem:", std_forward_training_mem)
-        
-        # Backward Training Time
-        mean_backward_training_mem = statistics.mean(all_backward_mems)
-        std_backward_training_mem = statistics.stdev(all_backward_mems)
-        print("Mean backward training mem:", mean_backward_training_mem)
-        print("STD backward training mem:", std_backward_training_mem)
-    
     
     print()
     print("Terminated Successfully.")

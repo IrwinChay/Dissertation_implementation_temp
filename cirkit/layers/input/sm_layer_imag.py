@@ -64,6 +64,54 @@ class SMKernelImagLayerParams(torch.nn.Module):
         """Reset parameters to default: U(0.01, 0.99)."""
         for param in self.parameters():
             torch.nn.init.uniform_(param, -0.2, 0.2)
+            
+class SMKernelImagFlattenLayerParams(torch.nn.Module):
+    """The constant layer, i.e., an input layer that returns constant values."""
+    
+    params_sigma: ReparamFactory
+    params_mu: ReparamFactory
+    
+    def __init__(  # pylint: disable=too-many-arguments
+        self,
+        *,
+        num_vars: int,
+        num_output_units: int,
+        reparam_sigma: ReparamFactory = ReparamExp,
+        reparam_mu: ReparamFactory = ReparamIdentity,
+    ) -> None:
+        """Init class.
+
+        Args:
+            num_vars (int): The number of variables of the circuit.
+            num_channels (int, optional): The number of channels of each variable. Defaults to 1.
+            num_replicas (int, optional): The number of replicas for each variable. Defaults to 1.
+            num_input_units (Literal[1], optional): The number of input units, must be 1. \
+                Defaults to 1.
+            num_output_units (int): The number of output units.
+            arity (Literal[1], optional): The arity of the layer, must be 1. Defaults to 1.
+            num_folds (Literal[0], optional): The number of folds. Should not be provided and will \
+                be calculated as num_vars*num_replicas. Defaults to 0.
+            fold_mask (None, optional): The mask of valid folds, must be None. Defaults to None.
+            reparam (ReparamFactory, optional): The reparameterization. Defaults to ReparamEFNormal.
+        """
+        super().__init__()
+        
+        self.num_output_units = num_output_units
+        self.num_vars = num_vars
+        
+        self.params_sigma = reparam_sigma(
+            (self.num_output_units, 1, self.num_vars), dim=-1
+        )
+        self.params_mu = reparam_mu(
+            (self.num_output_units, 1, self.num_vars), dim=-1
+        )
+        self.reset_parameters()
+        # shape (self.num_vars, self.num_output_units, self.num_replicas, self.num_suff_stats)
+
+    def reset_parameters(self) -> None:
+        """Reset parameters to default: U(0.01, 0.99)."""
+        for param in self.parameters():
+            torch.nn.init.uniform_(param, -0.2, 0.2)
 
     
 class SMKernelPosImagLayer(InputLayer):
@@ -82,7 +130,7 @@ class SMKernelPosImagLayer(InputLayer):
         arity: Literal[1] = 1,
         num_folds: Literal[0] = 0,
         fold_mask: None = None,
-        params_module: SMKernelImagLayerParams
+        params_module: Union[SMKernelImagLayerParams, SMKernelImagFlattenLayerParams]
     ) -> None:
         """Init class.
 
@@ -109,6 +157,13 @@ class SMKernelPosImagLayer(InputLayer):
             num_folds=num_folds,
             fold_mask=fold_mask,
         )
+        
+        if isinstance(params_module, SMKernelImagLayerParams):
+            self.flatten = False
+        elif isinstance(params_module, SMKernelImagFlattenLayerParams):
+            self.flatten = True
+        else:
+            raise ValueError("params_module must be an instance of SMKernelImagLayerParams or SMKernelImagFlattenLayerParams")
         
         self.params = params_module
         
@@ -170,7 +225,8 @@ class SMKernelPosImagLayer(InputLayer):
         # (B, B, D, K)
         fin_term = fin_term.permute(1, 2, 3, 0)
         # (B, B, D, K)
-        fin_term = torch.einsum('...di,dio->...do', fin_term, self.params.params_weight().to(torch.complex64))
+        if (not self.flatten):
+            fin_term = torch.einsum('...di,dio->...do', fin_term, self.params.params_weight().to(torch.complex64))
         
         # (B, B, D, K, 1)
         return fin_term.unsqueeze(-1)
@@ -193,7 +249,7 @@ class SMKernelNegImagLayer(InputLayer):
         arity: Literal[1] = 1,
         num_folds: Literal[0] = 0,
         fold_mask: None = None,
-        params_module: SMKernelImagLayerParams
+        params_module: Union[SMKernelImagLayerParams, SMKernelImagFlattenLayerParams]
     ) -> None:
         """Init class.
 
@@ -220,6 +276,13 @@ class SMKernelNegImagLayer(InputLayer):
             num_folds=num_folds,
             fold_mask=fold_mask,
         )
+        
+        if isinstance(params_module, SMKernelImagLayerParams):
+            self.flatten = False
+        elif isinstance(params_module, SMKernelImagFlattenLayerParams):
+            self.flatten = True
+        else:
+            raise ValueError("params_module must be an instance of SMKernelImagLayerParams or SMKernelImagFlattenLayerParams")
         
         self.params = params_module
         
@@ -284,7 +347,8 @@ class SMKernelNegImagLayer(InputLayer):
         # (B, B, D, K)
         fin_term = fin_term.permute(1, 2, 3, 0)
         # (B, B, D, K)
-        fin_term = torch.einsum('...di,dio->...do', fin_term, self.params.params_weight().to(torch.complex64))
+        if (not self.flatten):
+            fin_term = torch.einsum('...di,dio->...do', fin_term, self.params.params_weight().to(torch.complex64))
         
         # (B, B, D, K, 1)
         return fin_term.unsqueeze(-1)

@@ -35,11 +35,6 @@ class IdentityMapping(nn.Module):
     
 step_counter = 0
 
-forward_times_curr_run = 0.0
-backward_times_curr_run = 0.0
-forward_memory_curr_run = 0.0
-backward_memory_curr_run = 0.0
-
 ################## Hyper Param ##################
 
 dataset = "kin40k"
@@ -63,11 +58,6 @@ def main():
     all_test_rmses = []
     all_training_time = []
     all_peak_memory = []
-    
-    all_forward_times = []
-    all_backward_times = []
-    all_forward_mems = []
-    all_backward_mems = []
     
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  
@@ -200,26 +190,9 @@ def main():
         optimizer = torch.optim.Adam(parameters)
         pbar = ProgressBar()
         
-        global forward_times_curr_run 
-        global backward_times_curr_run 
-        global forward_memory_curr_run 
-        global backward_memory_curr_run 
-        
-        forward_times_curr_run = 0.0
-        backward_times_curr_run = 0.0
-        forward_memory_curr_run = 0.0
-        backward_memory_curr_run = 0.0
-
-        
-
         def step(engine, batch):
             
             global step_counter
-            
-            global forward_times_curr_run 
-            global backward_times_curr_run 
-            global forward_memory_curr_run 
-            global backward_memory_curr_run 
             
             step_counter += 1
             
@@ -233,22 +206,8 @@ def main():
                 x = x.cuda()
                 y = y.cuda()
                 
-            start_time_forward = time.time()
-            if torch.cuda.is_available():
-                start_memory_forward = torch.cuda.memory_allocated(device=device)
-
             y_pred = gp_model(x) # get y    
             loss = loss_fn(y_pred, y) # loss
-            
-            if torch.cuda.is_available():
-                end_memory_forward = torch.cuda.memory_allocated(device=device)
-            end_time_forward = time.time()
-            
-            # Memory and time for forward pass
-            if torch.cuda.is_available():
-                forward_memory_curr_run += (end_memory_forward - start_memory_forward)
-            forward_times_curr_run += (end_time_forward - start_time_forward)
-
             
             if torch.isnan(loss).any():
                 print(f"Step {step_counter}: NaN detected in loss.")
@@ -262,21 +221,8 @@ def main():
                 engine.terminate()
                 return
             
-            start_time_backward = time.time()
-            if torch.cuda.is_available():
-                start_memory_backward = torch.cuda.memory_allocated(device=device)
-            
             loss.backward()
             optimizer.step()
-            
-            if torch.cuda.is_available():
-                end_memory_backward = torch.cuda.memory_allocated(device=device)
-            end_time_backward = time.time()
-            
-            # Memory and time for backward pass
-            if torch.cuda.is_available():
-                backward_memory_curr_run += (end_memory_backward - start_memory_backward)
-            backward_times_curr_run += (end_time_backward - start_time_backward)
             
             return loss.item()
 
@@ -292,8 +238,7 @@ def main():
 
             y_pred = gp_model(x)   
             return y_pred, y
-
-            
+    
         trainer = Engine(step)
         evaluator = Engine(eval_step)
 
@@ -348,22 +293,6 @@ def main():
         print()
         
 
-        # Print results for this run
-        all_forward_times.append(forward_times_curr_run)
-        all_backward_times.append(backward_times_curr_run)
-        print(f"Run {run} - Forward pass: Total time = {forward_times_curr_run:.2f} s")
-        print(f"Run {run} - Backward pass: Total time = {backward_times_curr_run:.2f} s")
-
-        if torch.cuda.is_available():
-            all_forward_mems.append(forward_memory_curr_run)
-            all_backward_mems.append(backward_memory_curr_run)
-            print(f"Run {run} - Forward pass: Total memory = {forward_memory_curr_run / 1e6:.2f} MB")
-            print(f"Run {run} - Backward pass: Total memory = {backward_memory_curr_run / 1e6:.2f} MB")
-
-        print()
-        print()
-        
-        
         ################## Testing ##################
         
         # Assuming you have a function to compute RMSE, or you're using Ignite's RMSE metric

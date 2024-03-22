@@ -185,7 +185,7 @@ class SMKernelNegImagLayer(InputLayer):
         arity: Literal[1] = 1,
         num_folds: Literal[0] = 0,
         fold_mask: None = None,
-        params_module: SMKernelImagLayerParams
+        params_module: SMKernelImagFlattenLayerParams
     ) -> None:
         """Init class.
 

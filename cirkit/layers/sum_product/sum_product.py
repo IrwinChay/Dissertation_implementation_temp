@@ -54,6 +54,6 @@ class SumProductLayer(Layer):
         """Reset parameters to default: U(0.01, 0.99)."""
         for param in self.parameters():
             # nn.init.uniform_(param, 0.01, 0.99)
-            nn.init.uniform_(param, -0.2, 0.2)
+            nn.init.uniform_(param, -0.05, 0.05)
 
     # The forward method stays abstract, to be implemented by subclasses.
