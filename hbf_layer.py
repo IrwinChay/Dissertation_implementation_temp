@@ -122,11 +122,6 @@ class HBFLayer(nn.Module):
                     self.out_features_dim,
                     dtype=torch.float32))
             
-            self.bias = nn.Parameter(
-                torch.zeros(
-                    self.out_features_dim,
-                    dtype=torch.float32))
-
         # Initialize kernels' centers
         if self.constant_centers_parameter:
             self.kernels_centers = nn.Parameter(
@@ -184,11 +179,6 @@ class HBFLayer(nn.Module):
                 a=-upper_bound_kernels,
                 b=upper_bound_kernels)
             
-            nn.init.uniform_(
-                self.bias,
-                a=-upper_bound_kernels,
-                b=upper_bound_kernels)
-
     def forward(self, input: torch.Tensor) -> torch.Tensor:
         """
         Computes the ouput of the RBF layer given an input vector
@@ -246,7 +236,7 @@ class HBFLayer(nn.Module):
         # Take linear combination
         # out = torch.matmul(rbfs, self.weights)  # Adjusted for PyTorch efficiency
         # (B, 1)
-        return torch.matmul(rbfs, self.weights) + self.bias.expand(batch_size, self.out_features_dim)
+        return torch.matmul(rbfs, self.weights)
 
     @property
     def get_kernels_centers(self):
