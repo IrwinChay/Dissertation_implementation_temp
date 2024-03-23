@@ -42,7 +42,7 @@ epochs = 50
 # kernel = "HBF" # not used
 
 num_vars = 9
-num_mixtures = 128
+num_mixtures = 16
 depth = 3
 num_repetitions = 10
 # region_graph = FullyFactorized(num_vars=num_vars)
@@ -62,7 +62,7 @@ def main():
     print("Device: ", device)
     # The device to use, e.g., "cpu", "cuda", "cuda:1"
     
-    for run in range(1, 2):  # Running the model 3 times
+    for run in range(1, 6):  # Running the model 5 times
         
         dataset_split = random.randint(0, 9)
         efamily_kwargs = {}
@@ -78,6 +78,7 @@ def main():
         print()
 
         # Update seed settings for each run
+        # seed = 42
         seed = run * 10  # Example: 10, 20, 30 for the three runs
         random.seed(seed)
         np.random.seed(seed)
@@ -201,7 +202,8 @@ def main():
             train_loss /= len(dl_train.dataset)
 
             # Validation phas
-            if (epoch % 20 == 0):
+            # if (True):
+            if (epoch % 10 == 0):
                 pc_rbfn.eval()
                 val_loss = 0.0
                 with torch.no_grad():

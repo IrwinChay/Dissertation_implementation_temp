@@ -68,10 +68,11 @@ class SumLayer(Layer):
         """Reset parameters to default: U(0.01, 0.99) with normalization."""
         # TODO: is this still correct with reparam and fold_mask?
         for param in self.parameters():
-            nn.init.uniform_(param, 0.01, 0.99)
-            # TODO: pylint bug?
-            # pylint: disable-next=redefined-loop-name
-            param /= param.sum(dim=1, keepdim=True)  # type: ignore[misc]
+            # nn.init.uniform_(param, 0.01, 0.99)
+            # # TODO: pylint bug?
+            # # pylint: disable-next=redefined-loop-name
+            # param /= param.sum(dim=1, keepdim=True)  # type: ignore[misc]
+            nn.init.uniform_(param, -1.0, 1.0)
 
     # TODO: too many `self.fold_mask is None` checks across the repo
     #       can use apply_mask method?
@@ -101,7 +102,7 @@ class SumLayer(Layer):
         Returns:
             Tensor: The output of this layer, shape (F, K, *B).
         """
-        return log_func_exp(x, func=self._forward_linear, dim=1, keepdim=False)
-        # return self._forward_linear(x)
+        # return log_func_exp(x, func=self._forward_linear, dim=1, keepdim=False)
+        return self._forward_linear(x)
 
     # TODO: see commit 084a3685c6c39519e42c24a65d7eb0c1b0a1cab1 for backtrack

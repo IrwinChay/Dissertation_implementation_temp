@@ -100,12 +100,6 @@ class BaseCPLayer(SumProductLayer):
                 else None,
             )
             
-            param_bias_name = "fo"
-            self.params_bias = reparam(
-                self._infer_shape(param_bias_name),
-                dim=-2,
-                mask=None,
-            )
         else:
             self._einsum_in = ""
             self.params_in = None
@@ -196,7 +190,7 @@ class BaseCPLayer(SumProductLayer):
         #         x, func=self._forward_out_linear, dim=1, keepdim=True
         #     )  # shape (F, K, *B)
 
-        return x + self.params_bias().unsqueeze(-1)
+        return x 
 
 
 class CollapsedCPLayer(BaseCPLayer):
