@@ -87,6 +87,8 @@ def main():
                 norm_function=euclidean_norm,
                 normalization=False)
 
+            rbf.to(device)
+
             print("RBFN parameters: ")
             for param in rbf.parameters():
                 print(param.shape)
@@ -168,13 +170,13 @@ def main():
                 
                 for inputs, targets in dl_train:
                     optimizer.zero_grad()
-                    outputs = rbf(inputs)
+                    outputs = rbf(inputs.to(device))
                     outputs = outputs.squeeze(1)  # Ensure outputs match the target's shape
                     
                     # if(torch.isnan(outputs).any() == False):
                     #     print("no NAN")
 
-                    loss = criterion(outputs, targets)
+                    loss = criterion(outputs, targets.to(device))
                     if(torch.isnan(loss).any()):
                         print("loss", loss)
                         
@@ -191,9 +193,9 @@ def main():
                     val_loss = 0.0
                     with torch.no_grad():
                         for inputs, targets in dl_val:
-                            outputs = rbf(inputs)
+                            outputs = rbf(inputs.to(device))
                             outputs = outputs.squeeze(1)  # Ensure outputs match the target's shape
-                            loss = criterion(outputs, targets)
+                            loss = criterion(outputs, targets.to(device))
                             val_loss += loss.item() * inputs.size(0)
                     val_loss /= len(dl_val.dataset)
 
@@ -226,8 +228,8 @@ def main():
             rbf.eval()  # Ensure model is in evaluation mode
             with torch.no_grad():  # No gradients needed
                 for inputs, targets in dl_test:
-                    outputs = rbf(inputs).squeeze(1)
-                    loss = criterion(outputs, targets)
+                    outputs = rbf(inputs.to(device)).squeeze(1)
+                    loss = criterion(outputs, targets.to(device))
                     test_loss += loss.item() * inputs.size(0)
             test_loss /= len(dl_test.dataset)
             rmse = np.sqrt(test_loss)  # Calculate RMSE
@@ -235,6 +237,16 @@ def main():
             all_test_rmses.append(rmse)
             print()
             print()
+
+            del x_train, y_train, x_val, y_val, x_test, y_test
+            del x_train_real, y_train_real, x_train_real_normalized, x_val_normalized, x_test_normalized
+            del ds_train, ds_val, ds_test, dl_train, dl_val, dl_test
+            del rbf
+            
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache() 
+
+        
 
         
         # Test RMSE
