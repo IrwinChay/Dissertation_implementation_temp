@@ -101,7 +101,7 @@ class SumLayer(Layer):
         Returns:
             Tensor: The output of this layer, shape (F, K, *B).
         """
-        return log_func_exp(x, func=self._forward_linear, dim=1, keepdim=False)
-        # return self._forward_linear(x)
+        # return log_func_exp(x, func=self._forward_linear, dim=1, keepdim=False)
+        return self._forward_linear(x)
 
     # TODO: see commit 084a3685c6c39519e42c24a65d7eb0c1b0a1cab1 for backtrack

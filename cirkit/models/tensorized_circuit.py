@@ -339,8 +339,8 @@ class TensorizedPC(nn.Module):
         x = self.input_layer(*xs)  # shape (*B, D, K, P)
         x = self.scope_layer(x)  # shape (F, K, *B)
         log_output = self._eval_layers(x).movedim(source=0, destination=-1)  # shape (K, *B) -> (*B, K)
-        return torch.exp(log_output)
-        # return log_output
+        # return torch.exp(log_output)
+        return log_output
 
     def integrate(self, x: Tensor, in_vars: Union[List[int], List[List[int]]]) -> Tensor:
         """Evaluate an integral of the circuit over some variables.
