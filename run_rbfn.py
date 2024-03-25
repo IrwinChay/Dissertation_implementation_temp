@@ -194,13 +194,13 @@ def main():
                 
                 for inputs, targets in dl_train:
                     optimizer.zero_grad()
-                    outputs = pc_rbfn(inputs)
+                    outputs = pc_rbfn(inputs.to(device))
                     outputs = outputs.squeeze(1)  # Ensure outputs match the target's shape
                     
                     # if(torch.isnan(outputs).any() == False):
                     #     print("no NAN")
 
-                    loss = criterion(outputs, targets)
+                    loss = criterion(outputs, targets.to(device))
                     if(torch.isnan(loss).any()):
                         print("loss", loss)
                         
@@ -217,9 +217,9 @@ def main():
                     val_loss = 0.0
                     with torch.no_grad():
                         for inputs, targets in dl_val:
-                            outputs = pc_rbfn(inputs)
+                            outputs = pc_rbfn(inputs.to(device))
                             outputs = outputs.squeeze(1)  # Ensure outputs match the target's shape
-                            loss = criterion(outputs, targets)
+                            loss = criterion(outputs, targets.to(device))
                             val_loss += loss.item() * inputs.size(0)
                     val_loss /= len(dl_val.dataset)
 
@@ -252,8 +252,8 @@ def main():
             pc_rbfn.eval()  # Ensure model is in evaluation mode
             with torch.no_grad():  # No gradients needed
                 for inputs, targets in dl_test:
-                    outputs = pc_rbfn(inputs).squeeze(1)
-                    loss = criterion(outputs, targets)
+                    outputs = pc_rbfn(inputs.to(device)).squeeze(1)
+                    loss = criterion(outputs, targets.to(device))
                     test_loss += loss.item() * inputs.size(0)
             test_loss /= len(dl_test.dataset)
             rmse = np.sqrt(test_loss)  # Calculate RMSE
