@@ -7,6 +7,7 @@ from torch import Tensor
 from cirkit.layers.input import InputLayer
 from cirkit.utils.type_aliases import ReparamFactory
 from cirkit.reparams.leaf import ReparamExp, ReparamSoftmax
+from cirkit.utils.log_trick import log_func_exp
 
 # TODO: rework interface and docstring, the const value should be properly shaped
 
@@ -100,8 +101,12 @@ class RBFKernelLayer(InputLayer):
         exp_term = (x1_ - x2_).unsqueeze(-1).div(self.params() + 1e-6)
         # (B1, B2, D, K)
         activation = exp_term.pow_(2).div_(-2)
+
+        def _forward_linear(x: Tensor) -> Tensor:
+            return torch.einsum('...di,dio->...do', x, self.params_weight())
         
-        activation = torch.einsum('...di,dio->...do', activation, self.params_weight())
+        activation = log_func_exp(
+            activation, func=_forward_linear, dim=-1, keepdim=True)
         # (B1, B2, D, K)
         return activation.unsqueeze(-1)
         # (B1, B2, D, K, 1)
