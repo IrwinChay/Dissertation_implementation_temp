@@ -42,11 +42,11 @@ dataset = "kin40k"
 lr = 1e-3
 batch_size = 32
 epochs = 50
-n_inducing_points_s = [5, 10, 50, 100, 500]
+n_inducing_points = 50
 kernel = "HBF" # not used
 
 num_vars = 8
-num_mixtures = 16
+num_mixtures_s = [4, 8, 16, 32, 64]
 depth = 3
 num_repetitions = 10
 # region_graph = FullyFactorized(num_vars=num_vars)
@@ -63,9 +63,9 @@ def main():
     all_search_training_time_means = []
     all_search_training_time_stds = []
 
-    for n_inducing_points in n_inducing_points_s:
+    for num_mixtures in num_mixtures_s:
 
-        print("n_inducing_points: ", n_inducing_points)
+        print("num_mixtures: ", num_mixtures)
     
         all_test_rmses = []
         all_training_time = []
@@ -265,7 +265,7 @@ def main():
     
             metric.attach(evaluator, "loss")
     
-            @trainer.on(Events.EPOCH_COMPLETED(every=5)
+            @trainer.on(Events.EPOCH_COMPLETED(every=10))
             def log_results(trainer):
     
                 if torch.cuda.is_available():
