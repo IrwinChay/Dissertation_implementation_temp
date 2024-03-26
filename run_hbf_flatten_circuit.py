@@ -47,7 +47,7 @@ n_inducing_points_s = [5, 10, 50, 100, 500]
 kernel = "HBF" # not used
 
 num_vars = 8
-num_mixtures = 7802
+num_mixtures = 1967
 region_graph = FullyFactorized(num_vars=num_vars)
 # region_graph = RandomBinaryTree(num_vars=8, depth=3, num_repetitions=6)
 efamily_cls = RBFKernelFlattenLayer   # Flatten
