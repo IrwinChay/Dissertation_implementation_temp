@@ -265,7 +265,7 @@ def main():
     
             metric.attach(evaluator, "loss")
     
-            @trainer.on(Events.EPOCH_COMPLETED(every=5))
+            @trainer.on(Events.EPOCH_COMPLETED(every=10))
             def log_results(trainer):
     
                 if torch.cuda.is_available():
