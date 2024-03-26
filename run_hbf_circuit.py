@@ -46,7 +46,7 @@ n_inducing_points = 50
 kernel = "HBF" # not used
 
 num_vars = 8
-num_mixtures_s = [4, 8, 16, 32, 64]
+num_mixtures_s = [4, 8, 16] # [4, 8, 16, 32, 64]
 depth = 3
 num_repetitions = 10
 # region_graph = FullyFactorized(num_vars=num_vars)
