@@ -38,14 +38,14 @@ step_counter = 0
 
 ################## Hyper Param ##################
 
-dataset = "kin40k"
+dataset = "protein"
 lr = 1e-3
 batch_size = 32
 epochs = 50
 n_inducing_points = 50
 kernel = "HBF" # not used
 
-num_vars = 8
+num_vars = 9
 num_mixtures_s = [4, 8, 16] # [4, 8, 16, 32, 64]
 depth = 3
 num_repetitions = 10
