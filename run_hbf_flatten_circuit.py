@@ -38,7 +38,7 @@ step_counter = 0
 
 ################## Hyper Param ##################
 
-dataset = "kin40k"
+dataset = "protein"
 lr = 1e-3
 batch_size = 32
 epochs = 50
@@ -46,8 +46,8 @@ epochs = 50
 n_inducing_points = 50
 kernel = "HBF" # not used
 
-num_vars = 8
-num_mixtures_s = [130, 500, 1967] # [130, 500, 1967, 7802, 31076]
+num_vars = 9
+num_mixtures_s = [119, 458, 1798] # [119, 458, 1798, 7127] # [130, 500, 1967, 7802, 31076]
 region_graph = FullyFactorized(num_vars=num_vars)
 # region_graph = RandomBinaryTree(num_vars=8, depth=3, num_repetitions=6)
 efamily_cls = RBFKernelFlattenLayer   # Flatten
@@ -62,9 +62,9 @@ def main():
     all_search_training_time_means = []
     all_search_training_time_stds = []
 
-    for n_inducing_points in n_inducing_points_s:
+    for num_mixtures in num_mixtures_s:
 
-        print("n_inducing_points: ", n_inducing_points)
+        print("num_mixtures: ", num_mixtures)
     
         all_test_rmses = []
         all_training_time = []
