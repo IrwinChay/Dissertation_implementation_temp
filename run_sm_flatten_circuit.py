@@ -274,8 +274,8 @@ def main():
                 
                 evaluator.run(dl_val) # val dataset
                 print(f"Results - Epoch: {trainer.state.epoch} - "
-                    f"Val Loss: {evaluator.state.metrics['loss']:.2f} - "
-                    f"Train Loss: {trainer.state.metrics['loss']:.2f}")
+                    f"Val Loss: {evaluator.state.metrics['loss']:.6f} - "
+                    f"Train Loss: {trainer.state.metrics['loss']:.6f}")
                 
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
@@ -304,9 +304,9 @@ def main():
             if torch.cuda.is_available():
                 peak_memory = torch.cuda.max_memory_allocated(device=device) / (1024 ** 2)  # Convert bytes to MB
                 all_peak_memory.append(peak_memory)
-                print(f"Run {run} - Total training time: {total_time:.2f} seconds, Peak GPU memory used: {peak_memory:.2f} MB")
+                print(f"Run {run} - Total training time: {total_time:.6f} seconds, Peak GPU memory used: {peak_memory:.6f} MB")
             else:
-                print(f"Run {run} - Total training time: {total_time:.2f} seconds")
+                print(f"Run {run} - Total training time: {total_time:.6f} seconds")
     
             # Optional: Clear some memory
             if torch.cuda.is_available():
@@ -348,9 +348,17 @@ def main():
             # Retrieve and display the RMSE
             test_rmse = evaluator.state.metrics['RMSE']
             all_test_rmses.append(test_rmse)
-            print(f"Test RMSE: {test_rmse:.2f}")
+            print(f"Test RMSE: {test_rmse:.6f}")
             print()
             print()
+
+            del x_train, y_train, x_val, y_val, x_test, y_test
+            del x_train_real, y_train_real, x_train_real_normalized, x_val_normalized, x_test_normalized
+            del ds_train, ds_val, ds_test, dl_train, dl_val, dl_test
+            del pc_sm, gp_model
+    
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
     
         
         # Test RMSE
