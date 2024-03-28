@@ -228,7 +228,7 @@ def main():
     
             metric.attach(evaluator, "loss")
     
-            @trainer.on(Events.EPOCH_COMPLETED(every=int(epochs/20) + 1))
+            @trainer.on(Events.EPOCH_COMPLETED(every=5))
             def log_results(trainer):
                 evaluator.run(dl_val) # val dataset
                 print(f"Results - Epoch: {trainer.state.epoch} - "
