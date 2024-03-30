@@ -67,8 +67,8 @@ class ScopeLayer(Layer):
         Returns:
             Tensor: The output of this layer, shape (F, K, *B).
         """
-        if (x.dtype == torch.complex64):
-            scope = self.scope.to(torch.complex64)
+        if (x.dtype == torch.complex128):
+            scope = self.scope.to(torch.complex128)
         else:
             scope = self.scope
         return torch.einsum("...dkp,dpf->fk...", x, scope)
