@@ -9,6 +9,7 @@ import math
 from cirkit.layers.input import InputLayer
 from cirkit.utils.type_aliases import ReparamFactory
 from cirkit.reparams.leaf import ReparamExp, ReparamSoftmax, ReparamIdentity
+from cirkit.utils.log_trick import log_func_exp
 
 # TODO: rework interface and docstring, the const value should be properly shaped
 
