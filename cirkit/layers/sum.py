@@ -84,8 +84,8 @@ class SumLayer(Layer):
             * self.fold_mask.view(self.fold_mask.shape + (1,) * (x.ndim - self.fold_mask.ndim))
         )
         
-        if (x.dtype == torch.complex64):
-            params = self.params().to(torch.complex64)
+        if (x.dtype == torch.complex128):
+            params = self.params().to(torch.complex128)
         else:
             params = self.params()
         
