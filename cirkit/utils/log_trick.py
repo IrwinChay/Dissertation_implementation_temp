@@ -37,7 +37,7 @@ def log_func_exp(  # type: ignore[misc]
         Tensor: The result of `log(func(exp(x)))`.
     """
 
-    if (x[0].dtype == torch.complex64):
+    if (x[0].dtype == torch.complex128):
         max_x = [torch.max(xi.real, dim=dim, keepdim=True)[0] for xi in x]
     else:
         max_x = [torch.max(xi, dim=dim, keepdim=True)[0] for xi in x]
