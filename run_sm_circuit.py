@@ -43,11 +43,11 @@ dataset = "kin40k"
 lr = 1e-3
 batch_size = 32
 epochs = 50
-n_inducing_points = 100
+n_inducing_points = 50
 # n_inducing_points_s = [5, 10, 50, 100, 200]
 kernel = "SM" # not used
 
-num_mixtures_s = [16]
+num_mixtures_s = [16] # [4, 8, 16, 24, 32]
 num_vars = 8
 depth = 3
 num_repetitions = 10
@@ -55,7 +55,7 @@ num_repetitions = 10
 region_graph = RandomBinaryTree(num_vars=num_vars, depth=depth, num_repetitions=num_repetitions)
 # efamily_cls = RBFKernelFlattenLayer   # Flatten
 layer_cls = CPLayer
-reparam = ReparamSoftmax
+reparam = ReparamExp
 
 
 def main():
