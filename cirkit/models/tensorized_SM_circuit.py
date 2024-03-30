@@ -18,6 +18,7 @@ from cirkit.region_graph import PartitionNode, RegionGraph, RegionNode
 from cirkit.reparams.leaf import ReparamIdentity
 from cirkit.utils.scope import one_hot_variables
 from cirkit.utils.type_aliases import ReparamFactory
+from cirkit.reparams.leaf import ReparamExp, ReparamSoftmax
 
 # TODO: rework docstrings
 
@@ -235,6 +236,9 @@ class TensorizedSMPC(nn.Module):
             num_folds.append(len(lpartitions))
 
             # Build the actual layer
+
+            reparam = ReparamSoftmax if (rg_layer_idx == 1) else ReparamExp
+            
             num_outputs = num_inner_units if rg_layer_idx < len(rg_layers) - 1 else num_classes
             num_inputs = num_input_units if rg_layer_idx == 1 else num_inner_units
             # TODO: add shape analysis for unsqueeze
