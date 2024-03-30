@@ -274,23 +274,6 @@ def main():
             print()
             print()
             
-    
-            # Print results for this run
-            all_forward_times.append(forward_times_curr_run)
-            all_backward_times.append(backward_times_curr_run)
-            print(f"Run {run} - Forward pass: Total time = {forward_times_curr_run:.6f} s")
-            print(f"Run {run} - Backward pass: Total time = {backward_times_curr_run:.6f} s")
-    
-            if torch.cuda.is_available():
-                all_forward_mems.append(forward_memory_curr_run)
-                all_backward_mems.append(backward_memory_curr_run)
-                print(f"Run {run} - Forward pass: Total memory = {forward_memory_curr_run / 1e6:.6f} MB")
-                print(f"Run {run} - Backward pass: Total memory = {backward_memory_curr_run / 1e6:.6f} MB")
-    
-            print()
-            print()
-            
-            
             ################## Testing ##################
             
             # Assuming you have a function to compute RMSE, or you're using Ignite's RMSE metric
