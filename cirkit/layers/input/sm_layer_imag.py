@@ -222,13 +222,13 @@ class SMKernelPosImagLayer(InputLayer):
         imag_cos_term[torch.isinf(imag_cos_term)] = 0
         
         # (K, B, B, D)
-        fin_term = torch.complex(real_exp_term, imag_cos_term.float())
+        fin_term = torch.complex(real_exp_term.type(torch.float64), imag_cos_term.type(torch.float64))
         # (B, B, D, K)
         fin_term = fin_term.permute(1, 2, 3, 0)
         # (B, B, D, K)
 
         def _forward_linear(x: Tensor) -> Tensor:
-            return torch.einsum('...di,dio->...do', x, self.params.params_weight().to(torch.complex64))
+            return torch.einsum('...di,dio->...do', x, self.params.params_weight().to(torch.complex128))
         
         if (not self.flatten):
             # fin_term = torch.einsum('...di,dio->...do', fin_term, self.params.params_weight().to(torch.complex64))
@@ -348,13 +348,13 @@ class SMKernelNegImagLayer(InputLayer):
         imag_cos_term[torch.isinf(imag_cos_term)] = 0
         
         # (K, B, B, D)
-        fin_term = torch.complex(real_exp_term, imag_cos_term.float())
+        fin_term = torch.complex(real_exp_term.type(torch.float64), imag_cos_term.type(torch.float64))
         
         # (B, B, D, K)
         fin_term = fin_term.permute(1, 2, 3, 0)
 
         def _forward_linear(x: Tensor) -> Tensor:
-            return torch.einsum('...di,dio->...do', x, self.params.params_weight().to(torch.complex64))
+            return torch.einsum('...di,dio->...do', x, self.params.params_weight().to(torch.complex128))
         
         # (B, B, D, K)
         if (not self.flatten):
