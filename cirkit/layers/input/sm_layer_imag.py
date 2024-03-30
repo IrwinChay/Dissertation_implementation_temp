@@ -9,6 +9,7 @@ import math
 from cirkit.layers.input import InputLayer
 from cirkit.utils.type_aliases import ReparamFactory
 from cirkit.reparams.leaf import ReparamExp, ReparamSoftmax, ReparamIdentity
+from cirkit.utils.log_trick import log_func_exp
 
 # TODO: rework interface and docstring, the const value should be properly shaped
 
@@ -53,7 +54,7 @@ class SMKernelImagLayerParams(torch.nn.Module):
         self.params_mu = reparam_mu(
             (self.num_output_units, 1, self.num_vars), dim=-1
         )
-        reparam_weights = ReparamSoftmax
+        reparam_weights = ReparamExp
         self.params_weight = reparam_weights(
             (self.num_vars, self.num_output_units, self.num_output_units), dim=-2
         )
@@ -111,7 +112,7 @@ class SMKernelImagFlattenLayerParams(torch.nn.Module):
     def reset_parameters(self) -> None:
         """Reset parameters to default: U(0.01, 0.99)."""
         for param in self.parameters():
-            torch.nn.init.uniform_(param, -0.2, 0.2)
+            torch.nn.init.uniform_(param, -2, -0.5)
 
     
 class SMKernelPosImagLayer(InputLayer):
@@ -225,8 +226,13 @@ class SMKernelPosImagLayer(InputLayer):
         # (B, B, D, K)
         fin_term = fin_term.permute(1, 2, 3, 0)
         # (B, B, D, K)
+
+        def _forward_linear(x: Tensor) -> Tensor:
+            return torch.einsum('...di,dio->...do', x, self.params.params_weight().to(torch.complex64))
+        
         if (not self.flatten):
-            fin_term = torch.einsum('...di,dio->...do', fin_term, self.params.params_weight().to(torch.complex64))
+            # fin_term = torch.einsum('...di,dio->...do', fin_term, self.params.params_weight().to(torch.complex64))
+            fin_term = log_func_exp(fin_term, func=_forward_linear, dim=-1, keepdim=True)
         
         # (B, B, D, K, 1)
         return fin_term.unsqueeze(-1)
@@ -346,9 +352,14 @@ class SMKernelNegImagLayer(InputLayer):
         
         # (B, B, D, K)
         fin_term = fin_term.permute(1, 2, 3, 0)
+
+        def _forward_linear(x: Tensor) -> Tensor:
+            return torch.einsum('...di,dio->...do', x, self.params.params_weight().to(torch.complex64))
+        
         # (B, B, D, K)
         if (not self.flatten):
-            fin_term = torch.einsum('...di,dio->...do', fin_term, self.params.params_weight().to(torch.complex64))
+            # fin_term = torch.einsum('...di,dio->...do', fin_term, self.params.params_weight().to(torch.complex64))
+            fin_term = log_func_exp(fin_term, func=_forward_linear, dim=-1, keepdim=True)
         
         # (B, B, D, K, 1)
         return fin_term.unsqueeze(-1)
