@@ -134,8 +134,8 @@ class BaseCPLayer(SumProductLayer):
     def _forward_in_linear(self, x: Tensor) -> Tensor:
         assert self.params_in is not None and self._einsum_in, "This should not happen."
         
-        if (x.dtype == torch.complex64):
-            params = self.params_in().to(torch.complex64)
+        if (x.dtype == torch.complex128):
+            params = self.params_in().to(torch.complex128)
         else:
             params = self.params_in()
         
