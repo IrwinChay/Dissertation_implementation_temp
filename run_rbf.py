@@ -35,16 +35,16 @@ step_counter = 0
 
 ################## Hyper Param ##################
 
-dataset = "kin40k"
+dataset_s = ["kin40k", "protein", "bike", "elevators", "pol"]
 lr = 1e-3
 batch_size = 32
 epochs = 50
 # n_inducing_points = 50
-n_inducing_points_s = [5, 10, 50, 100, 200]
-kernel = "SM" 
+n_inducing_points = 50
+kernel = "RBF" 
 
-num_vars = 8
-num_mixtures = 70
+# num_vars = 8
+# num_mixtures = 70
 
 
 def main():
@@ -54,7 +54,7 @@ def main():
     all_search_training_time_means = []
     all_search_training_time_stds = []
 
-    for n_inducing_points in n_inducing_points_s:
+    for dataset in dataset_s:
     
         all_test_rmses = []
         all_training_time = []
@@ -64,7 +64,7 @@ def main():
         print("Device: ", device)
         # The device to use, e.g., "cpu", "cuda", "cuda:1"
         
-        for run in range(1, 4):  # Running the model 3 times
+        for run in range(1, 6):  # Running the model 3 times
             
             dataset_split = random.randint(0, 9)
             efamily_kwargs = {}
@@ -113,6 +113,7 @@ def main():
             x_test_normalized = (x_test - mean) / std
     
             input_dim = x_train_real_normalized.shape[1]
+            num_vars = input_dim
             num_outputs = 1
             feature_extractor = IdentityMapping()
     
@@ -133,6 +134,8 @@ def main():
             dl_test = torch.utils.data.DataLoader(ds_test, batch_size=16, shuffle=False)
             
             ################## Training Definitions ##################
+
+            feature_extractor = IdentityMapping()
     
             initial_inducing_points, initial_lengthscale = initial_values(
                     ds_train, feature_extractor, n_inducing_points
@@ -141,12 +144,13 @@ def main():
             gp = GP(
                 num_outputs=num_outputs,
                 num_features=input_dim,          # CHANGE features / input_dim
+                initial_lengthscale=initial_lengthscale,
                 initial_inducing_points=initial_inducing_points,
                 kernel=kernel,
-                initial_lengthscale=None,
-                sm_kernel_mixtures = num_mixtures,
-                sm_kernel_x_train = None, # torch.tensor(x_train_real_normalized), 
-                sm_kernel_y_train = None, # torch.tensor(y_train_real),  
+                # initial_lengthscale=None,
+                # sm_kernel_mixtures = num_mixtures,
+                # sm_kernel_x_train = None, # torch.tensor(x_train_real_normalized), 
+                # sm_kernel_y_train = None, # torch.tensor(y_train_real),  
             )
             
             model = DKL(feature_extractor, gp)
@@ -232,8 +236,8 @@ def main():
             def log_results(trainer):
                 evaluator.run(dl_val) # val dataset
                 print(f"Results - Epoch: {trainer.state.epoch} - "
-                    f"Val Loss: {evaluator.state.metrics['loss']:.2f} - "
-                    f"Train Loss: {trainer.state.metrics['loss']:.2f}")
+                    f"Val Loss: {evaluator.state.metrics['loss']:.6f} - "
+                    f"Train Loss: {trainer.state.metrics['loss']:.6f}")
                 
             print("Total model params: ")
             for index, param in enumerate(model.parameters()): 
@@ -259,9 +263,9 @@ def main():
             if torch.cuda.is_available():
                 peak_memory = torch.cuda.max_memory_allocated(device=device) / (1024 ** 2)  # Convert bytes to MB
                 all_peak_memory.append(peak_memory)
-                print(f"Run {run} - Total training time: {total_time:.2f} seconds, Peak GPU memory used: {peak_memory:.2f} MB")
+                print(f"Run {run} - Total training time: {total_time:.6f} seconds, Peak GPU memory used: {peak_memory:.6f} MB")
             else:
-                print(f"Run {run} - Total training time: {total_time:.2f} seconds")
+                print(f"Run {run} - Total training time: {total_time:.6f} seconds")
     
             # Optional: Clear some memory
             if torch.cuda.is_available():
