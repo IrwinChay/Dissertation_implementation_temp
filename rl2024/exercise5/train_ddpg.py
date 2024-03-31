@@ -29,8 +29,8 @@ ENV = "RACETRACK"
 RACETRACK_CONFIG = {
     "policy_learning_rate": 1e-4,
     "critic_learning_rate": 1e-3,
-    "critic_hidden_size": [32, 32, 32],
-    "policy_hidden_size": [32, 32, 32],
+    "critic_hidden_size": [96, 64, 64],
+    "policy_hidden_size": [128, 128, 128],
     "gamma": 0.99,
     "tau": 0.5,
     "batch_size": 32,

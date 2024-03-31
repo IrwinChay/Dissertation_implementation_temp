@@ -80,8 +80,14 @@ class ValueIteration(MDPSolver):
             E.g. V[3] returns the computed value for state 3
         """
         V = np.zeros(self.state_dim)
-        ### PUT YOUR CODE HERE ###
-        raise NotImplementedError("Needed for Q1")
+        while True:
+            act_vals = np.sum(self.mdp.P * (self.mdp.R + self.gamma * V[None, None, :]), axis=2)
+            # (state_dim, action_dim)
+            V_new = np.max(act_vals, axis=1)
+            delta = np.max(np.abs(V_new - V))
+            V = V_new
+            if delta < theta:
+                break
         return V
 
     def _calc_policy(self, V: np.ndarray) -> np.ndarray:
@@ -102,8 +108,13 @@ class ValueIteration(MDPSolver):
             policy[S, OTHER_ACTIONS] = 0
         """
         policy = np.zeros([self.state_dim, self.action_dim])
-        ### PUT YOUR CODE HERE ###
-        raise NotImplementedError("Needed for Q1")
+
+        act_vals = np.sum(self.mdp.P * (self.mdp.R + self.gamma * V[None, None, :]), axis=2)
+        # (state_dim, action_dim)
+        best_actions = np.argmax(act_vals, axis=1)
+        
+        policy[np.arange(self.state_dim), best_actions] = 1
+        
         return policy
 
     def solve(self, theta: float = 1e-6) -> Tuple[np.ndarray, np.ndarray]:
@@ -149,9 +160,21 @@ class PolicyIteration(MDPSolver):
             It is indexed as (State) where V[State] is the value of state 'State'
         """
         V = np.zeros(self.state_dim)
-        ### PUT YOUR CODE HERE ###
-        raise NotImplementedError("Needed for Q1")
-        return np.array(V)
+        while True:
+            delta = 0
+            V_prev = V.copy()
+            
+            for state in range(self.state_dim):
+                val_uncollapsed = policy[state, :, None] * self.mdp.P[state] * \
+                    (self.mdp.R[state] + self.gamma * V[None, :])
+                # (action_dim, state_dim)
+                V[state] = np.sum(val_uncollapsed)  
+ 
+            delta = np.max(np.abs(V - V_prev))
+            if delta < self.theta:
+                break    
+        
+        return V
 
     def _policy_improvement(self) -> Tuple[np.ndarray, np.ndarray]:
         """Computes policy iteration until a stable policy is reached
@@ -174,8 +197,15 @@ class PolicyIteration(MDPSolver):
         """
         policy = np.zeros([self.state_dim, self.action_dim])
         V = np.zeros([self.state_dim])
-        ### PUT YOUR CODE HERE ###
-        raise NotImplementedError("Needed for Q1")
+        
+        while True:
+            V = self._policy_eval(policy)
+            act_vals = np.sum(self.mdp.P * (self.mdp.R + self.gamma * V[None, None, :]), axis=2)
+            # (state_dim, action_dim)
+            new_policy = np.eye(self.action_dim)[np.argmax(act_vals, axis=1)]
+            if (new_policy == policy).all():
+                break
+            policy = new_policy
         return policy, V
 
     def solve(self, theta: float = 1e-6) -> Tuple[np.ndarray, np.ndarray]:
@@ -230,3 +260,4 @@ if __name__ == "__main__":
     print(solver.decode_policy(policy))
     print("Value Function")
     print(valuefunc)
+

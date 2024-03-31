@@ -39,7 +39,7 @@ def grid_search(num_samples: int, min: float = None, max: float = None, **kwargs
 
     """
     # raise NotImplementedError
-    values = torch.zeros(num_samples)
+    values = torch.linspace(min, max, num_samples)
     return values
 
 
@@ -57,6 +57,15 @@ def random_search(num_samples: int, distribution: str, min: float=None, max: flo
     **YOU MAY IMPLEMENT THIS FUNCTION FOR Q5**
 
     """
-    # raise NotImplementedError
-    values = torch.zeros(num_samples)
-    return values
+    if distribution == 'loguniform':
+        values = torch.logspace(torch.log10(min), torch.log10(max), num_samples)
+    elif distribution == 'uniform':
+        values = torch.linspace(min, max, num_samples)
+    elif distribution == "uniform": 
+        mean = kwargs.get("mean", 0)
+        std = kwargs.get("std", 1)
+        values = torch.normal(mean, std, size=(num_samples,))
+        values = torch.clamp(values, min, max)
+    else:
+        raise ValueError(f"Unknown distribution '{distribution}'")
+    return list(values)

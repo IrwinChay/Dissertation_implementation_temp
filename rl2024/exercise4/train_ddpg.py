@@ -15,38 +15,38 @@ from rl2024.exercise3.replay import ReplayBuffer
 from rl2024.util.hparam_sweeping import generate_hparam_configs
 from rl2024.util.result_processing import Run
 
-RENDER = False # FALSE FOR FASTER TRAINING / TRUE TO VISUALIZE ENVIRONMENT DURING EVALUATION
-SWEEP = False # TRUE TO SWEEP OVER POSSIBLE HYPERPARAMETER CONFIGURATIONS
-NUM_SEEDS_SWEEP = 10 # NUMBER OF SEEDS TO USE FOR EACH HYPERPARAMETER CONFIGURATION
-SWEEP_SAVE_RESULTS = True # TRUE TO SAVE SWEEP RESULTS TO A FILE
-SWEEP_SAVE_ALL_WEIGTHS = False # TRUE TO SAVE ALL WEIGHTS FROM EACH SEED
+RENDER = (
+    False  # FALSE FOR FASTER TRAINING / TRUE TO VISUALIZE ENVIRONMENT DURING EVALUATION
+)
+SWEEP = True  # TRUE TO SWEEP OVER POSSIBLE HYPERPARAMETER CONFIGURATIONS
+NUM_SEEDS_SWEEP = 3  # NUMBER OF SEEDS TO USE FOR EACH HYPERPARAMETER CONFIGURATION
+SWEEP_SAVE_RESULTS = True  # TRUE TO SAVE SWEEP RESULTS TO A FILE
+SWEEP_SAVE_ALL_WEIGTHS = True  # TRUE TO SAVE ALL WEIGHTS FROM EACH SEED
 ENV = "RACETRACK"
 
 RACETRACK_CONFIG = {
-    "critic_hidden_size": [32, 32, 32],
-    "policy_hidden_size": [32, 32, 32],
+    "critic_hidden_size": [96, 64, 64],
+    "policy_hidden_size": [128, 128, 128],
 }
+# RACETRACK_CONFIG = {
+#     "critic_hidden_size": [256, 128, 96],
+#     "policy_hidden_size": [128, 128, 128],
+# }
 RACETRACK_CONFIG.update(RACETRACK_CONSTANTS)
 
-
-### INCLUDE YOUR CHOICE OF HYPERPARAMETERS HERE ###
-RACETRACK_HPARAMS = {
-    "critic_hidden_size": ...,
-    "policy_hidden_size": ...,
-    }
 
 SWEEP_RESULTS_FILE_RACETRACK = "DDPG-Racetrack-sweep-results-ex4.pkl"
 
 
 def play_episode(
-        env,
-        agent,
-        replay_buffer,
-        train=True,
-        explore=True,
-        render=False,
-        max_steps=200,
-        batch_size=64,
+    env,
+    agent,
+    replay_buffer,
+    train=True,
+    explore=True,
+    render=False,
+    max_steps=200,
+    batch_size=64,
 ):
 
     ep_data = defaultdict(list)
@@ -89,7 +89,9 @@ def play_episode(
     return episode_timesteps, episode_return, ep_data
 
 
-def train(env: gym.Env, env_eval: gym.Env, config: Dict, output: bool = True) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Dict]:
+def train(
+    env: gym.Env, env_eval: gym.Env, config: Dict, output: bool = True
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Dict]:
     """
     Execute training of DDPG on given environment using the provided configuration
 
@@ -174,43 +176,58 @@ def train(env: gym.Env, env_eval: gym.Env, config: Dict, output: bool = True) ->
     if config["save_filename"]:
         print("Saving to: ", agent.save(config["save_filename"]))
 
-    return np.array(eval_returns_all), np.array(eval_timesteps_all), np.array(eval_times_all), run_data
+    return (
+        np.array(eval_returns_all),
+        np.array(eval_timesteps_all),
+        np.array(eval_times_all),
+        run_data,
+    )
 
 
 if __name__ == "__main__":
     if ENV == "RACETRACK":
-        CONFIG = RACETRACK_CONFIG
-        HPARAMS_SWEEP = None # Not required for assignment
-        SWEEP_RESULTS_FILE = None # Not required for assignment
+        CONFIG = RACETRACK_CONFIG  # RACETRACK_CONFIG
+        HPARAMS_SWEEP = None  # Not required for assignment None RACETRACK_HPARAMS
+        SWEEP_RESULTS_FILE = (
+            SWEEP_RESULTS_FILE_RACETRACK  # Not required for assignment None
+        )
     else:
-        raise(ValueError(f"Unknown environment {ENV}"))
+        raise (ValueError(f"Unknown environment {ENV}"))
 
     env = gym.make(CONFIG["env"])
     env_eval = gym.make(CONFIG["env"])
 
     if SWEEP and HPARAMS_SWEEP is not None:
-        qqq
+
         config_list, swept_params = generate_hparam_configs(CONFIG, HPARAMS_SWEEP)
         results = []
         for config in config_list:
             run = Run(config)
-            hparams_values = '_'.join([':'.join([key, str(config[key])]) for key in swept_params])
+            hparams_values = "_".join(
+                [":".join([key, str(config[key])]) for key in swept_params]
+            )
             run.run_name = hparams_values
             print(f"\nStarting new run...")
             for i in range(NUM_SEEDS_SWEEP):
                 print(f"\nTraining iteration: {i+1}/{NUM_SEEDS_SWEEP}")
-                run_save_filename = '--'.join([run.config["algo"], run.config["env"], hparams_values, str(i)])
+                run_save_filename = "--".join(
+                    [run.config["algo"], run.config["env"], hparams_values, str(i)]
+                )
                 if SWEEP_SAVE_ALL_WEIGTHS:
                     run.set_save_filename(run_save_filename)
-                eval_returns, eval_timesteps, times, run_data = train(env, run.config, output=False)
+                eval_returns, eval_timesteps, times, run_data = train(
+                    env, env_eval, run.config, output=False
+                )
                 run.update(eval_returns, eval_timesteps, times, run_data)
             results.append(copy.deepcopy(run))
-            print(f"Finished run with hyperparameters {hparams_values}. "
-                  f"Mean final score: {run.final_return_mean} +- {run.final_return_ste}")
+            print(
+                f"Finished run with hyperparameters {hparams_values}. "
+                f"Mean final score: {run.final_return_mean} +- {run.final_return_ste}"
+            )
 
         if SWEEP_SAVE_RESULTS:
             print(f"Saving results to {SWEEP_RESULTS_FILE}")
-            with open(SWEEP_RESULTS_FILE, 'wb') as f:
+            with open(SWEEP_RESULTS_FILE, "wb") as f:
                 pickle.dump(results, f)
 
     else:

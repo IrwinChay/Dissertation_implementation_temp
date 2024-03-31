@@ -68,12 +68,13 @@ class DDPG(Agent):
         #  BUILD YOUR NETWORKS AND OPTIMIZERS HERE  #
         # ######################################### #
         # self.actor = Actor(STATE_SIZE, policy_hidden_size, ACTION_SIZE)
+        self.device = "cpu"
         self.actor = FCNetwork(
             (STATE_SIZE, *policy_hidden_size, ACTION_SIZE), output_activation=torch.nn.Tanh
-        )
+        ).to(self.device) 
         self.actor_target = FCNetwork(
             (STATE_SIZE, *policy_hidden_size, ACTION_SIZE), output_activation=torch.nn.Tanh
-        )
+        ).to(self.device)
 
         self.actor_target.hard_update(self.actor)
         # self.critic = Critic(STATE_SIZE + ACTION_SIZE, critic_hidden_size)
@@ -81,10 +82,10 @@ class DDPG(Agent):
 
         self.critic = FCNetwork(
             (STATE_SIZE + ACTION_SIZE, *critic_hidden_size, 1), output_activation=None
-        )
+        ).to(self.device)
         self.critic_target = FCNetwork(
             (STATE_SIZE + ACTION_SIZE, *critic_hidden_size, 1), output_activation=None
-        )
+        ).to(self.device)
         self.critic_target.hard_update(self.critic)
 
         self.policy_optim = Adam(self.actor.parameters(), lr=policy_learning_rate, eps=1e-3)
@@ -178,8 +179,16 @@ class DDPG(Agent):
         :param explore (bool): flag indicating whether we should explore
         :return (sample from self.action_space): action the agent should perform
         """
-        ### PUT YOUR CODE HERE ###
-        raise NotImplementedError("Needed for Q4")
+        # Implementation referenced from https://github.com/udacity/deep-reinforcement-learning
+        state = torch.from_numpy(obs).float().to(self.device)
+        self.actor.eval()
+        with torch.no_grad():
+            action = self.actor(state).cpu().data.numpy()
+        # random exploration
+        if explore:
+            self.actor.train()  
+            action += self.noise.sample().cpu().data.numpy()
+        return np.clip(action, self.lower_action_bound, self.upper_action_bound)
 
     def update(self, batch: Transition) -> Dict[str, float]:
         """Update function for DQN
@@ -193,12 +202,43 @@ class DDPG(Agent):
         :param batch (Transition): batch vector from replay buffer
         :return (Dict[str, float]): dictionary mapping from loss names to loss values
         """
-        ### PUT YOUR CODE HERE ###
-        raise NotImplementedError("Needed for Q4")
+        # Implementation referenced from https://github.com/udacity/deep-reinforcement-learning
+        
+        # (s_t, a_t, r_t, d_t, s_{t+1})
+        obses, actions, n_obses, rewards, dones = batch
+        
+        # update critic
+        actions_next = self.actor_target(n_obses)
+        n_obses_and_actions = torch.cat([n_obses, actions_next], 1)
+        Q_targets_next = self.critic_target(n_obses_and_actions)
 
-        q_loss = 0.0
-        p_loss = 0.0
+        # define critic loss
+        # Term in MSE equation L_{theta} 
+        Q_targets = rewards + (self.gamma * Q_targets_next * (1 - dones))
+        obses_and_actions = torch.cat([obses, actions], 1)
+        Q_expected = self.critic(obses_and_actions)
+        critic_loss = F.mse_loss(Q_expected, Q_targets)
+        
+        # update the parameters in critic
+        self.critic_optim.zero_grad()
+        critic_loss.backward()
+        self.critic_optim.step()
+
+        # actor loss
+        actions_pred = self.actor(obses)
+        obs_and_pred_acts = torch.cat([obses, actions_pred], 1)
+        actor_loss = -self.critic(obs_and_pred_acts).mean()
+        
+        # update the parameters of the actor
+        self.policy_optim.zero_grad()
+        actor_loss.backward()
+        self.policy_optim.step()
+
+        # update target networks
+        self.actor_target.soft_update(self.actor, tau=self.tau)
+        self.critic_target.soft_update(self.critic, tau=self.tau)
+        
         return {
-            "q_loss": q_loss,
-            "p_loss": p_loss,
+            "q_loss": float(actor_loss),
+            "p_loss": float(critic_loss),
         }

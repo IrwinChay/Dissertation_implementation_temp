@@ -6,6 +6,7 @@ import os.path
 from torch import Tensor
 from torch.distributions.categorical import Categorical
 import torch.nn
+import torch.nn.functional as F
 from torch.optim import Adam
 from typing import Dict, Iterable, List
 
@@ -156,6 +157,7 @@ class DQN(Agent):
         self.target_update_freq = target_update_freq
         self.batch_size = batch_size
         self.gamma = gamma
+        self.device = "cpu"
 
         self.epsilon = epsilon_start
         self.epsilon_start = epsilon_start
@@ -205,22 +207,36 @@ class DQN(Agent):
 
         def epsilon_linear_decay(*args, **kwargs):
             ### PUT YOUR CODE HERE ###
-            raise(NotImplementedError)
+            if float(timestep / max_timestep) >= self.exploration_fraction:
+                # print("linear: minimum epsilon reached")
+                self.epsilon = self.epsilon_min
+                return self.epsilon
+            else:
+                stop_criterion = int(self.exploration_fraction * max_timestep)
+                step_size = float((self.epsilon_start - self.epsilon_min) / stop_criterion)
+                self.epsilon -= step_size
+                return self.epsilon
 
         def epsilon_exponential_decay(*args, **kwargs):
-            ### PUT YOUR CODE HERE ###
-            raise(NotImplementedError)
+            if self.epsilon <= self.epsilon_min:
+                # print("exp: minimum epsilon reached")
+                self.epsilon = self.epsilon_min
+                return self.epsilon
+            else: 
+                self.epsilon = self.epsilon_start * self.epsilon_exponential_decay_factor** \
+                    (timestep/max_timestep)
+                return self.epsilon
 
         if self.epsilon_decay_strategy == "constant":
             pass
         elif self.epsilon_decay_strategy == "linear":
             # linear decay
             ### PUT YOUR CODE HERE ###
-            self.epsilon = epsilon_linear_decay(...)
+            self.epsilon = epsilon_linear_decay(timestep, max_timestep)
         elif self.epsilon_decay_strategy == "exponential":
             # exponential decay
             ### PUT YOUR CODE HERE ###
-            self.epsilon = epsilon_exponential_decay(...)
+            self.epsilon = epsilon_exponential_decay(max_timestep)
         else:
             raise ValueError("epsilon_decay_strategy must be either 'constant', 'linear' or 'exponential'")
 
@@ -237,8 +253,21 @@ class DQN(Agent):
         :param explore (bool): flag indicating whether we should explore
         :return (sample from self.action_space): action the agent should perform
         """
-        ### PUT YOUR CODE HERE ###
-        raise NotImplementedError("Needed for Q3")
+        state = torch.from_numpy(obs).float().unsqueeze(0).to(self.device)
+
+        actions = self.critics_net(state)
+
+        # eps-greedy policy
+        if explore:
+            if np.random.random() > self.epsilon:
+                return np.argmax(actions.cpu().data.numpy())
+            else:
+                # Random exploration
+                return self.action_space.sample()
+        else:
+            # No eps-greedy policy
+            return np.argmax(actions.cpu().data.numpy())
+
 
     def update(self, batch: Transition) -> Dict[str, float]:
         """Update function for DQN
@@ -252,10 +281,35 @@ class DQN(Agent):
         :param batch (Transition): batch vector from replay buffer
         :return (Dict[str, float]): dictionary mapping from loss names to loss values
         """
-        ### PUT YOUR CODE HERE ###
-        raise NotImplementedError("Needed for Q3")
-        q_loss = 0.0
-        return {"q_loss": q_loss}
+        # Implementation referenced from https://github.com/udacity/deep-reinforcement-learning
+        obs, actions, n_obs, rewards, dones = batch
+        
+        action_values = self.critics_net(n_obs).detach()
+        actions_max = action_values.max(dim=1)[1].unsqueeze(dim=1)
+        
+        # Compute max predicted Q values
+        q_values_next = self.critics_target(n_obs).detach()
+        q_targets_next = q_values_next.gather(1, actions_max.long())
+        
+        q_values = self.critics_net(obs)
+        q_expected = q_values.gather(1, actions.long())
+
+        # compute loss function \mathbb{L}_\theta
+        q_targets = rewards + (1 - dones) * (self.gamma * q_targets_next)
+        loss = F.mse_loss(q_expected, q_targets)
+        
+        # Update parameters
+        self.critics_optim.zero_grad()
+        loss.backward()
+        self.critics_optim.step()
+        self.update_counter += 1
+        
+        # Hard Update
+        if self.update_counter % self.target_update_freq == 0:
+            self.critics_target.load_state_dict(self.critics_net.state_dict())
+        
+        return {"q_loss": float(loss)}
+        
 
 
 class Reinforce(Agent):
@@ -294,9 +348,10 @@ class Reinforce(Agent):
         # ######################################### #
         #  BUILD YOUR NETWORKS AND OPTIMIZERS HERE  #
         # ######################################### #
+        self.device = "cpu"
         self.policy = FCNetwork(
             (STATE_SIZE, *hidden_size, ACTION_SIZE), output_activation=torch.nn.modules.activation.Softmax
-            )
+            ).to(self.device)
 
         self.policy_optim = Adam(self.policy.parameters(), lr=learning_rate, eps=1e-3)
 
@@ -340,8 +395,14 @@ class Reinforce(Agent):
         :param explore (bool): flag indicating whether we should explore
         :return (sample from self.action_space): action the agent should perform
         """
-        ### PUT YOUR CODE HERE ###
-        raise NotImplementedError("Needed for Q3")
+        state_tensor = torch.tensor(obs, dtype=torch.float32, device=self.device).unsqueeze(0)
+
+        # stochastic policy
+        action_dist = self.policy(state_tensor)
+        action = Categorical(action_dist).sample()
+        return action.item()
+        
+
 
     def update(
         self, rewards: List[float], observations: List[np.ndarray], actions: List[int],
@@ -356,7 +417,26 @@ class Reinforce(Agent):
         :return (Dict[str, float]): dictionary mapping from loss names to loss values
             losses
         """
-        ### PUT YOUR CODE HERE ###
-        raise NotImplementedError("Needed for Q3")
-        p_loss = 0.0
-        return {"p_loss": p_loss}
+        rewards = torch.flip(torch.tensor(rewards), dims=[0])
+        discounted_rewards = rewards * torch.pow(self.gamma, torch.arange(len(rewards)).float())
+        discounted_rewards = torch.flip(torch.cumsum(torch.flip(discounted_rewards, dims=[0]), dim=0), dims=[0])
+
+        discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (discounted_rewards.std() + 1e-6)
+        observations_tensor = torch.tensor(np.array(observations), dtype=torch.float32)
+        actions_tensor = torch.tensor(actions, dtype=torch.long)
+
+        # Compute the policy gradients
+        probs = self.policy(observations_tensor)
+        one_hot_tensor = torch.nn.functional.one_hot(actions_tensor, self.action_space.n)
+        log_probs = torch.log(torch.sum(probs* one_hot_tensor, dim=1))
+        loss = -torch.mean(log_probs * torch.tensor(discounted_rewards, dtype=torch.float32))
+
+        # Update parameters
+        self.policy_optim.zero_grad()
+        loss.backward()
+        self.policy_optim.step()
+
+        return {"p_loss": float(loss)}
+        
+        
+

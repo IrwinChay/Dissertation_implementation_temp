@@ -53,10 +53,14 @@ class Agent(ABC):
         :param obs (int): received observation representing the current environmental state
         :return (int): index of selected action
         """
-        ### PUT YOUR CODE HERE ###
-        raise NotImplementedError("Needed for Q2")
-        ### RETURN AN ACTION HERE ###
-        return -1
+        act_vals = [self.q_table[obs, act] for act in range(self.n_acts)]
+        max_acts = [i for i, v in enumerate(act_vals) if v == max(act_vals)]
+
+        # ϵ-greedy exploration policy
+        if random.random() > self.epsilon:
+            return random.choice(max_acts)
+        else:
+            return random.randint(0, self.n_acts-1)
 
     @abstractmethod
     def schedule_hyperparameters(self, timestep: int, max_timestep: int):
@@ -104,9 +108,15 @@ class QLearningAgent(Agent):
         :param done (bool): flag indicating whether a terminal state has been reached
         :return (float): updated Q-value for current observation-action pair
         """
-        ### PUT YOUR CODE HERE ###
-        raise NotImplementedError("Needed for Q2")
-        return self.q_table[(obs, action)]
+        max_val = max((self.q_table[k] for k in self.q_table if k[0] == n_obs), default=0)
+
+        # Q-learning algorithm, alpha*(R_{t+1}+gamma*maxQ-Q)
+        q_diff = self.gamma * max_val - self.q_table[(obs, action)]
+        # target=reward if 'done'=True
+        target = reward + (1 - done) * q_diff
+        self.q_table[(obs, action)] += self.alpha * target
+    
+        return self.q_table[obs, action]
 
     def schedule_hyperparameters(self, timestep: int, max_timestep: int):
         """Updates the hyperparameters
@@ -134,7 +144,8 @@ class MonteCarloAgent(Agent):
         :attr sa_counts (Dict[(Obs, Act), int]): dictionary to count occurrences observation-action pairs
         """
         super().__init__(**kwargs)
-        self.sa_counts = {}
+        self.sa_counts = defaultdict(lambda:0)
+        self.updated_values = defaultdict(lambda:0)
 
     def learn(
         self, obses: List[int], actions: List[int], rewards: List[float]
@@ -152,10 +163,21 @@ class MonteCarloAgent(Agent):
         :return (Dict): A dictionary containing the updated Q-value of all the updated state-action pairs
             indexed by the state action pair.
         """
-        updated_values = {}
-        ### PUT YOUR CODE HERE ###
-        raise NotImplementedError("Needed for Q2")
-        return updated_values
+        state_act_rwd = list(zip(obses, actions, rewards))
+        state_act = {(e[0], e[1]) for e in state_act_rwd}
+
+        for (state, act) in state_act:
+            idx = [i for i, (s, a, _) in enumerate(state_act_rwd) if (
+                s == state and a == act)][0]
+            
+            weighted_sum = sum(e[2] * (self.gamma ** i) for i, e in enumerate(state_act_rwd[idx:]))
+            self.updated_values[( state, act )] += weighted_sum
+            self.sa_counts[( state, act )] += 1.0
+            
+            q_value = self.updated_values[(state, act)] / self.sa_counts[(state, act)]
+            self.q_table[(state, act)] = q_value
+            
+        return self.q_table
 
     def schedule_hyperparameters(self, timestep: int, max_timestep: int):
         """Updates the hyperparameters
@@ -169,3 +191,4 @@ class MonteCarloAgent(Agent):
         :param max_timestep (int): maximum timesteps that the training loop will run for
         """
         self.epsilon = 1.0 - (min(1.0, timestep / (0.9 * max_timestep))) * 0.8
+
