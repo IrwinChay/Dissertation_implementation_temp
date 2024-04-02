@@ -14,6 +14,7 @@ from gpytorch.variational import (
 
 # from gpytorch.kernels import SpectralMixtureKernel
 from due.sm_kernel import SMKernel
+from due.ensemble_rbf_kernel import EnsembleRBFKernel
 
 
 from sklearn import cluster
@@ -72,10 +73,10 @@ class GP(ApproximateGP):
         num_features,
         initial_inducing_points,
         kernel="RBF",
-        initial_lengthscale = None,
-        sm_kernel_mixtures = 1, 
-        sm_kernel_x_train = None, 
-        sm_kernel_y_train = None, 
+        initial_lengthscale=None,
+        sm_kernel_mixtures=1,
+        sm_kernel_x_train=None,
+        sm_kernel_y_train=None,
     ):
         n_inducing_points = initial_inducing_points.shape[0]
 
@@ -105,23 +106,39 @@ class GP(ApproximateGP):
 
         if kernel == "RBF":
             kernel = RBFKernel(**kwargs)
-            kernel.lengthscale = initial_lengthscale * torch.ones_like(kernel.lengthscale)
+            kernel.lengthscale = initial_lengthscale * torch.ones_like(
+                kernel.lengthscale
+            )
         elif kernel == "HBF":
             kernel = RBFKernel(batch_shape=batch_shape, ard_num_dims=num_features)
-            kernel.lengthscale = initial_lengthscale * torch.ones_like(kernel.lengthscale)
+            kernel.lengthscale = initial_lengthscale * torch.ones_like(
+                kernel.lengthscale
+            )
         elif kernel == "SM":
-            
-            sm_kernel_kwargs = {**kwargs, 
-                                "num_mixtures": sm_kernel_mixtures, 
-                                "ard_num_dims" : num_features,
-                                }
+
+            sm_kernel_kwargs = {
+                **kwargs,
+                "num_mixtures": sm_kernel_mixtures,
+                "ard_num_dims": num_features,
+            }
             # num_mixtures, ard_num_dims, batch_shape
-            
-            kernel = SMKernel(**sm_kernel_kwargs) # SMKernel SpectralMixtureKernel
+
+            kernel = SMKernel(**sm_kernel_kwargs)  # SMKernel SpectralMixtureKernel
             # kernel.initialize_from_data(sm_kernel_x_train, sm_kernel_y_train)
+        elif kernel == "HBF_Mixture":
+            hbf_mix_kernel_kwargs = {
+                **kwargs,
+                "num_mixtures": sm_kernel_mixtures,
+                "ard_num_dims": num_features,
+            }
+            # num_mixtures, ard_num_dims, batch_shape
+
+            kernel = EnsembleRBFKernel(
+                **hbf_mix_kernel_kwargs
+            )  # SMKernel SpectralMixtureKernel
         else:
             raise ValueError("Specified kernel not known.")
-        
+
         self.kernel = kernel
 
         self.mean_module = ConstantMean(batch_shape=batch_shape)
@@ -132,7 +149,7 @@ class GP(ApproximateGP):
         covar = self.covar_module(x)
 
         return MultivariateNormal(mean, covar)
-    
+
     def get_covar(self, x):
         # mean = self.mean_module(x)
         covar = self.covar_module(x)
